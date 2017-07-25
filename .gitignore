@@ -1,0 +1,9 @@
+
+# vim
+.*.swp
+.*.un~
+
+# test
+/config.toml
+/tmp
+/etc
