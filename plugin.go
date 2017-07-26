@@ -2,18 +2,16 @@ package axe
 
 import (
 	"github.com/facebookgo/inject"
-	"github.com/gorilla/mux"
 	"github.com/ikeikeikeike/go-sitemap-generator/stm"
 	"github.com/kapmahc/axe/job"
 	"github.com/urfave/cli"
-	"github.com/urfave/negroni"
 	"golang.org/x/tools/blog/atom"
 )
 
 // Plugin plugin
 type Plugin interface {
 	Open(*inject.Graph) error
-	Mount(*mux.Router, *negroni.Negroni)
+	Mount(*Router)
 	Console() []cli.Command
 	Workers() map[string]job.Handler
 	Rss(lang string) ([]*atom.Entry, error)

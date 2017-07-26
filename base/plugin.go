@@ -4,7 +4,6 @@ import (
 	"os"
 	"path"
 
-	"github.com/gorilla/mux"
 	"github.com/ikeikeikeike/go-sitemap-generator/stm"
 	"github.com/jinzhu/gorm"
 	"github.com/kapmahc/axe"
@@ -13,7 +12,6 @@ import (
 	"github.com/kapmahc/axe/job"
 	"github.com/kapmahc/axe/settings"
 	"github.com/spf13/viper"
-	"github.com/urfave/negroni"
 	"golang.org/x/tools/blog/atom"
 )
 
@@ -27,7 +25,7 @@ type Plugin struct {
 }
 
 // Mount web mount points
-func (p *Plugin) Mount(*mux.Router, *negroni.Negroni) {}
+func (p *Plugin) Mount(*axe.Router) {}
 
 // Workers workers
 func (p *Plugin) Workers() map[string]job.Handler {
@@ -81,9 +79,10 @@ func init() {
 	})
 
 	viper.SetDefault("server", map[string]interface{}{
-		"port": 8080,
-		"ssl":  false,
-		"name": "www.change-me.com",
+		"port":  3000,
+		"ssl":   false,
+		"name":  "www.change-me.com",
+		"theme": "default",
 	})
 
 	viper.SetDefault("secrets", map[string]interface{}{

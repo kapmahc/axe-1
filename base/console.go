@@ -1,11 +1,14 @@
 package base
 
 import (
+	"context"
 	"crypto/x509/pkix"
 	"encoding/xml"
 	"fmt"
 	"html/template"
+	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"time"
@@ -591,90 +594,57 @@ func (p *Plugin) runWorker(c *cli.Context, _ *inject.Graph) error {
 }
 
 func (p *Plugin) runServer(c *cli.Context, _ *inject.Graph) error {
-	// if axe.IsProduction() {
-	// 	gin.SetMode(gin.ReleaseMode)
-	// }
-	// rt := gin.Default()
-	// // --------------------
-	// lm, err := p.I18n.Middleware()
-	// if err != nil {
-	// 	return err
-	// }
-	// // --------------------
-	// rt.Use(
-	// 	lm,
-	// 	axe.Wrap(p.Jwt.CurrentUserMiddleware),
-	// )
-	// // --------------------
-	// axe.Walk(func(en axe.Plugin) error {
-	// 	en.Mount(rt)
-	// 	return nil
-	// })
-	// // ---------------
-	// if c.Bool("worker") {
-	// 	log.Info("start worker")
-	// 	name, _ := os.Hostname()
-	// 	go func() {
-	// 		for {
-	// 			if err := p.Server.Do(name); err != nil {
-	// 				log.Error(err)
-	// 			}
-	// 		}
-	// 	}()
-	// }
+	rt := axe.NewRouter()
+	// --------------------
+	axe.Walk(func(pl axe.Plugin) error {
+		pl.Mount(rt)
+		return nil
+	})
+	// ---------------
+	if c.Bool("worker") {
+		log.Info("start worker")
+		name, _ := os.Hostname()
+		go func() {
+			for {
+				if err := p.Server.Do(name); err != nil {
+					log.Error(err)
+				}
+			}
+		}()
+	}
 
 	// ---------------
-	// return p.listen(
-	// 	rt,
-	// 	viper.GetInt("server.port"),
-	// 	axe.IsProduction(),
-	// 	cors.Options{
-	// 		AllowedOrigins:   []string{axe.Frontend()},
-	// 		AllowedHeaders:   []string{"Authorization", "Cache-Control", "X-Requested-With"},
-	// 		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
-	// 		AllowCredentials: true,
-	// 		Debug:            !axe.IsProduction(),
-	// 	},
-	// )
+	port := viper.GetInt("server.port")
+	log.Infof("Listen at http://localhost:%d", port)
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: rt.Handler(),
+	}
+	if !IsProduction() {
+		return srv.ListenAndServe()
+	}
+	go func() {
+		// service connections
+		if err := srv.ListenAndServe(); err != nil {
+			log.Printf("listen: %s\n", err)
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown the server with
+	// a timeout of 5 seconds.
+	quit := make(chan os.Signal)
+	signal.Notify(quit, os.Interrupt)
+	<-quit
+	log.Warnf("Shutdown Server ...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		return err
+	}
+	log.Info("Server ext")
 	return nil
 }
-
-// func (p *Plugin) listen(rt http.Handler, port int, grace bool, cro cors.Options) error {
-// 	addr := fmt.Sprintf(":%d", port)
-// 	log.Infof(
-// 		"application starting on http://localhost:%d",
-// 		port,
-// 	)
-// 	// ----------------
-// 	// hnd := cors.New(cro).Handler(rt)
-// 	// // ----------------
-// 	// if grace {
-// 	// 	srv := &http.Server{Addr: addr, Handler: hnd}
-// 	// 	go func() {
-// 	// 		// service connections
-// 	// 		if err := srv.ListenAndServe(); err != nil {
-// 	// 			log.Error(err)
-// 	// 		}
-// 	// 	}()
-// 	//
-// 	// 	// Wait for interrupt signal to gracefully shutdown the server with
-// 	// 	// a timeout of 5 seconds.
-// 	// 	quit := make(chan os.Signal)
-// 	// 	signal.Notify(quit, os.Interrupt)
-// 	// 	<-quit
-// 	// 	log.Warningf("shutdown server ...")
-// 	//
-// 	// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-// 	// 	defer cancel()
-// 	// 	if err := srv.Shutdown(ctx); err != nil {
-// 	// 		return err
-// 	// 	}
-// 	// 	log.Info("server exist")
-// 	// 	return nil
-// 	// }
-// 	// // ----------------
-// 	// return http.ListenAndServe(addr, hnd)
-// }
 
 func (p *Plugin) writeSitemap(root string) error {
 	sm := stm.NewSitemap()
