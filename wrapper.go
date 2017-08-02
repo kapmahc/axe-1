@@ -3,53 +3,28 @@ package axe
 import (
 	"net/http"
 
-	"github.com/unrolled/render"
+	"github.com/gorilla/csrf"
+	"github.com/rs/cors"
 )
 
-// Wrapper wrapper
-type Wrapper struct {
-	R render.Render
+// CSRF set csrf key
+func CSRF(key string, secure bool, hnd http.Handler) http.Handler {
+	return csrf.Protect(
+		[]byte(key),
+		csrf.RequestHeader("Authenticity-Token"),
+		csrf.FieldName("authenticity_token"),
+		csrf.CookieName("csrf"),
+		csrf.Secure(secure),
+	)(hnd)
 }
 
-func (p *Wrapper) error(w http.ResponseWriter, e error) {
-	s := http.StatusInternalServerError
-	if er, ok := e.(*HTTPError); ok {
-		s = er.Status
-	}
-	http.Error(w, e.Error(), s)
-}
-
-// HTML rener html
-func (p *Wrapper) HTML(l string, n string, f func(*Context) (H, error)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		v, e := f(newContext(w, r))
-		if e == nil {
-			v["error"] = e.Error()
-		}
-		p.R.HTML(w, http.StatusOK, n, v, render.HTMLOptions{Layout: l})
-	}
-}
-
-// JSON rener json
-func (p *Wrapper) JSON(f func(*Context) (interface{}, error)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		v, e := f(newContext(w, r))
-		if e == nil {
-			p.R.JSON(w, http.StatusOK, v)
-			return
-		}
-		p.error(w, e)
-	}
-}
-
-// XML rener xml
-func (p *Wrapper) XML(f func(*Context) (interface{}, error)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		v, e := f(newContext(w, r))
-		if e == nil {
-			p.R.XML(w, http.StatusOK, v)
-			return
-		}
-		p.error(w, e)
-	}
+// CORS cors header
+func CORS(debug bool, hnd http.Handler, hosts ...string) http.Handler {
+	return cors.New(cors.Options{
+		AllowedHeaders:   []string{"Authorization", "Cache-Control", "X-Requested-With"},
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
+		AllowCredentials: true,
+		Debug:            debug,
+		AllowedOrigins:   hosts,
+	}).Handler(hnd)
 }

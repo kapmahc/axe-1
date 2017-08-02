@@ -5,8 +5,6 @@ import (
 	"net/http"
 
 	"github.com/kapmahc/axe"
-	"github.com/urfave/negroni"
-
 	"golang.org/x/text/language"
 )
 
@@ -21,7 +19,7 @@ func (p *I18n) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.Hand
 }
 
 // Middleware detect language from http request
-func (p *I18n) Middleware() (negroni.HandlerFunc, error) {
+func (p *I18n) Middleware() (interface{}, error) {
 	langs, err := p.Store.Languages()
 	if err != nil {
 		return nil, err

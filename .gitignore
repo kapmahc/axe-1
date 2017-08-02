@@ -1,4 +1,7 @@
 
+# Go
+/vendor/*/
+
 # vim
 .*.swp
 .*.un~
