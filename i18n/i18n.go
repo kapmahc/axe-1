@@ -2,6 +2,7 @@ package i18n
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -10,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kapmahc/axe"
 	"github.com/kapmahc/axe/cache"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/text/language"
@@ -39,11 +39,12 @@ func (p *I18n) F(lang, code string, obj interface{}) (string, error) {
 }
 
 //E create an i18n error
-func (p *I18n) E(status int, lang, code string, args ...interface{}) error {
-	return &axe.HTTPError{
-		Message: p.T(lang, code, args...),
-		Status:  status,
+func (p *I18n) E(lang, code string, args ...interface{}) error {
+	msg, err := p.get(lang, code)
+	if err != nil {
+		return errors.New(code)
 	}
+	return fmt.Errorf(msg, args...)
 }
 
 //T translate by lang tag

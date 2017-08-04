@@ -1,25 +1,20 @@
 package i18n
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/kapmahc/axe"
+
 	"golang.org/x/text/language"
 )
 
 const (
 	// LOCALE locale key
-	LOCALE = axe.K("locale")
+	LOCALE = "locale"
 )
 
-// ServeHTTP middleware
-func (p *I18n) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-
-}
-
 // Middleware detect language from http request
-func (p *I18n) Middleware() (interface{}, error) {
+func (p *I18n) Middleware() (axe.HandlerFunc, error) {
 	langs, err := p.Store.Languages()
 	if err != nil {
 		return nil, err
@@ -30,22 +25,21 @@ func (p *I18n) Middleware() (interface{}, error) {
 	}
 	matcher := language.NewMatcher(tags)
 
-	return func(wrt http.ResponseWriter, req *http.Request, next http.HandlerFunc) {
-		tag, _, _ := matcher.Match(language.Make(p.detect(req)))
-		ctx := context.WithValue(req.Context(), LOCALE, tag.String())
-		next(wrt, req.WithContext(ctx))
+	return func(c *axe.Context) {
+		tag, _, _ := matcher.Match(language.Make(p.detect(c.Request)))
+		c.Payload[LOCALE] = tag.String()
+		c.Next()
 	}, nil
 }
 
 func (p *I18n) detect(r *http.Request) string {
-	const key = "locale"
 	// 1. Check URL arguments.
-	if lang := r.URL.Query().Get(key); lang != "" {
+	if lang := r.URL.Query().Get(LOCALE); lang != "" {
 		return lang
 	}
 
 	// 2. Get language information from cookies.
-	if ck, er := r.Cookie(key); er == nil {
+	if ck, er := r.Cookie(LOCALE); er == nil {
 		return ck.Value
 	}
 
