@@ -102,7 +102,7 @@ func (p *Router) Resources(path string, index, create, show, update, destroy []H
 		p.POST(path, update...)
 	}
 	if destroy != nil {
-		p.POST(path, destroy...)
+		p.DELETE(path, destroy...)
 	}
 }
 
