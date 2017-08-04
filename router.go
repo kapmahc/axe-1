@@ -18,6 +18,7 @@ func NewRouter() *Router {
 		routes:   make([]route, 0),
 		handlers: make([]HandlerFunc, 0),
 		funcs:    make(template.FuncMap),
+		statics:  make(map[string]string),
 	}
 }
 
@@ -27,11 +28,17 @@ type Router struct {
 	routes   []route
 	handlers []HandlerFunc
 	funcs    template.FuncMap
+	statics  map[string]string
 }
 
 // Use use handlers
 func (p *Router) Use(handlers ...HandlerFunc) {
 	p.handlers = append(p.handlers, handlers...)
+}
+
+// Static static files
+func (p *Router) Static(path, dir string) {
+	p.statics[path] = dir
 }
 
 // GET http get
@@ -77,6 +84,9 @@ func (p *Router) Group(path string, router *Router) {
 		rt.handlers = append(p.handlers, rt.handlers...)
 		p.routes = append(p.routes, rt)
 	}
+	for k, v := range router.statics {
+		p.statics[k] = v
+	}
 }
 
 // Walk walk routes
@@ -103,6 +113,9 @@ func (p *Router) Handler(views string, debug bool) http.Handler {
 	rut := mux.NewRouter()
 	dec := form.NewDecoder()
 	vat := validator.New()
+	for k, v := range p.statics {
+		rut.PathPrefix(k).Handler(http.StripPrefix(k, http.FileServer(http.Dir(v)))).Methods(http.MethodGet)
+	}
 	for _, r := range p.routes {
 		rut.HandleFunc(r.path, func(wrt http.ResponseWriter, req *http.Request) {
 			now := time.Now()
