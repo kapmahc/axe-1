@@ -1,10 +1,13 @@
 package axe
 
 import (
+	"bytes"
 	"math"
 	"net"
 	"net/http"
+	"path"
 	"strings"
+	"text/template"
 
 	"github.com/go-playground/form"
 	log "github.com/sirupsen/logrus"
@@ -83,6 +86,11 @@ func (p *Context) Next() {
 	h(p)
 }
 
+// Header set write header
+func (p *Context) Header(k, v string) {
+	p.Writer.Header().Set(k, v)
+}
+
 // Abort Abort prevents pending handlers from being called. Note that this will not stop the current handler.
 func (p *Context) Abort(code int, err error) {
 	http.Error(p.Writer, err.Error(), code)
@@ -104,4 +112,19 @@ func (p *Context) XML(c int, v interface{}) {
 // HTML render html
 func (p *Context) HTML(c int, l, n string, v H) {
 	p.render.HTML(p.Writer, c, n, v, render.HTMLOptions{Layout: l})
+}
+
+// TEXT render text
+func (p *Context) TEXT(c int, n string, v interface{}) {
+	tpl, err := template.ParseFiles(path.Join("templates", n))
+	var buf bytes.Buffer
+	if err == nil {
+		err = tpl.Execute(&buf, v)
+	}
+	if err != nil {
+		p.Abort(http.StatusInternalServerError, err)
+		return
+	}
+
+	p.render.Text(p.Writer, c, buf.String())
 }

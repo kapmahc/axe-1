@@ -155,11 +155,18 @@ func (p *Router) Handler(views string, debug bool) http.Handler {
 		log.Debugf("GET %s => %s", k, v)
 		rut.PathPrefix(k).Handler(http.StripPrefix(k, http.FileServer(http.Dir(v)))).Methods(http.MethodGet)
 	}
-	for _, r := range p.routes {
+	for _, rt := range p.routes {
+		r := route{
+			method:   rt.method,
+			path:     rt.path,
+			handlers: append([]HandlerFunc{}, rt.handlers...),
+		}
+
 		log.Debugf("%s %s [%d]", r.method, r.path, len(r.handlers))
 		rut.HandleFunc(r.path, func(wrt http.ResponseWriter, req *http.Request) {
 			now := time.Now()
 			log.Infof("%s %s %s", req.Proto, req.Method, req.URL)
+			log.Debugf("%s %s", r.method, r.path)
 			log.Debug(req.Header)
 			ctx := Context{
 				Request:  req,
@@ -172,6 +179,7 @@ func (p *Router) Handler(views string, debug bool) http.Handler {
 				validate: vat,
 				render:   rdr,
 			}
+			log.Debug(ctx.Params)
 			ctx.Next()
 			log.Infof("%d %s", ctx.code, time.Now().Sub(now))
 		}).Methods(r.method)
