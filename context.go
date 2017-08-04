@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-playground/form"
 	log "github.com/sirupsen/logrus"
+	"github.com/unrolled/render"
 	validator "gopkg.in/go-playground/validator.v9"
 )
 
@@ -30,6 +31,7 @@ type Context struct {
 	code     int
 	index    int8
 	handlers []HandlerFunc
+	render   *render.Render
 }
 
 // Bind bind json form

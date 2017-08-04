@@ -1,21 +1,23 @@
 package axe
 
 import (
+	"html/template"
 	"net/http"
 	"time"
 
 	"github.com/go-playground/form"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+	"github.com/unrolled/render"
 	validator "gopkg.in/go-playground/validator.v9"
 )
 
 // NewRouter create router
-func NewRouter(path string) *Router {
+func NewRouter() *Router {
 	return &Router{
-		path:     path,
 		routes:   make([]route, 0),
 		handlers: make([]HandlerFunc, 0),
+		funcs:    make(template.FuncMap),
 	}
 }
 
@@ -24,6 +26,7 @@ type Router struct {
 	path     string
 	routes   []route
 	handlers []HandlerFunc
+	funcs    template.FuncMap
 }
 
 // Use use handlers
@@ -76,8 +79,27 @@ func (p *Router) Group(path string, router *Router) {
 	}
 }
 
+// Walk walk routes
+func (p *Router) Walk(f func(method, path string, handlers ...HandlerFunc) error) error {
+	for _, r := range p.routes {
+		if e := f(r.method, r.path, r.handlers...); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
 // Handler http handle
-func (p *Router) Handler() http.Handler {
+func (p *Router) Handler(views string, debug bool) http.Handler {
+	rdr := render.New(render.Options{
+		Directory:     views,
+		Extensions:    []string{".html"},
+		Funcs:         []template.FuncMap{},
+		IndentJSON:    debug,
+		IndentXML:     debug,
+		IsDevelopment: debug,
+	})
+
 	rut := mux.NewRouter()
 	dec := form.NewDecoder()
 	vat := validator.New()
@@ -94,6 +116,7 @@ func (p *Router) Handler() http.Handler {
 				handlers: r.handlers,
 				decoder:  dec,
 				validate: vat,
+				render:   rdr,
 			}
 			ctx.Next()
 			log.Infof("done, %d %s", ctx.code, time.Now().Sub(now))
