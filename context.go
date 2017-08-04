@@ -4,8 +4,6 @@ import (
 	"math"
 	"net"
 	"net/http"
-	"reflect"
-	"runtime"
 	"strings"
 
 	"github.com/go-playground/form"
@@ -20,6 +18,9 @@ type HandlerFunc func(*Context)
 // H hash data
 type H map[string]interface{}
 
+// LayoutFunc prepare layout data
+type LayoutFunc func(H) error
+
 // Context Context is the most important part of gin. It allows us to pass variables between middleware, manage the flow, validate the JSON of a request and render a JSON response for example.
 type Context struct {
 	Request  *http.Request
@@ -29,7 +30,7 @@ type Context struct {
 	decoder  *form.Decoder
 	validate *validator.Validate
 	code     int
-	index    int8
+	index    uint8
 	handlers []HandlerFunc
 	render   *render.Render
 }
@@ -73,19 +74,34 @@ func (p *Context) ClientIP() string {
 
 // Next Next should be used only inside middleware. It executes the pending handlers in the chain inside the calling handler.
 func (p *Context) Next() {
-	p.index++
-	s := int8(len(p.handlers))
-	for ; p.index < s; p.index++ {
-		h := p.handlers[p.index]
-		log.Debugf("call %s", runtime.FuncForPC(reflect.ValueOf(h).Pointer()).Name())
-		h(p)
+	if p.index >= uint8(len(p.handlers)) {
+		return
 	}
+	h := p.handlers[p.index]
+	p.index++
+	log.Debugf("call %s", FuncName(h))
+	h(p)
 }
 
 // Abort Abort prevents pending handlers from being called. Note that this will not stop the current handler.
 func (p *Context) Abort(code int, err error) {
 	http.Error(p.Writer, err.Error(), code)
-	p.index = math.MaxInt8
+	p.index = math.MaxUint8
 	p.code = code
 	log.Error(err)
+}
+
+// JSON render json
+func (p *Context) JSON(c int, v interface{}) {
+	p.render.JSON(p.Writer, c, v)
+}
+
+// XML render xml
+func (p *Context) XML(c int, v interface{}) {
+	p.render.XML(p.Writer, c, v)
+}
+
+// HTML render html
+func (p *Context) HTML(c int, l, n string, v H) {
+	p.render.HTML(p.Writer, c, n, v, render.HTMLOptions{Layout: l})
 }

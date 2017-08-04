@@ -19,6 +19,7 @@ func NewRouter() *Router {
 		handlers: make([]HandlerFunc, 0),
 		funcs:    make(template.FuncMap),
 		statics:  make(map[string]string),
+		layouts:  make(map[string]LayoutFunc),
 	}
 }
 
@@ -29,11 +30,17 @@ type Router struct {
 	handlers []HandlerFunc
 	funcs    template.FuncMap
 	statics  map[string]string
+	layouts  map[string]LayoutFunc
 }
 
 // Use use handlers
 func (p *Router) Use(handlers ...HandlerFunc) {
 	p.handlers = append(p.handlers, handlers...)
+}
+
+// FuncMap set html template funcmap
+func (p *Router) FuncMap(n string, f interface{}) {
+	p.funcs[n] = f
 }
 
 // Static static files
@@ -80,12 +87,20 @@ func (p *Router) add(method, path string, handlers ...HandlerFunc) {
 // Group sub-router
 func (p *Router) Group(path string, router *Router) {
 	for _, rt := range router.routes {
-		rt.path = path + rt.path
-		rt.handlers = append(p.handlers, rt.handlers...)
-		p.routes = append(p.routes, rt)
+		p.add(
+			rt.method,
+			path+rt.path,
+			rt.handlers...,
+		)
 	}
 	for k, v := range router.statics {
 		p.statics[k] = v
+	}
+	for k, v := range router.layouts {
+		p.layouts[k] = v
+	}
+	for k, v := range router.funcs {
+		p.funcs[k] = v
 	}
 }
 
@@ -114,25 +129,28 @@ func (p *Router) Handler(views string, debug bool) http.Handler {
 	dec := form.NewDecoder()
 	vat := validator.New()
 	for k, v := range p.statics {
+		log.Debugf("GET %s => %s", k, v)
 		rut.PathPrefix(k).Handler(http.StripPrefix(k, http.FileServer(http.Dir(v)))).Methods(http.MethodGet)
 	}
 	for _, r := range p.routes {
+		log.Debugf("%s %s [%d]", r.method, r.path, len(r.handlers))
 		rut.HandleFunc(r.path, func(wrt http.ResponseWriter, req *http.Request) {
 			now := time.Now()
-			log.Info(req.Proto, req.Method, req.URL)
+			log.Infof("%s %s %s", req.Proto, req.Method, req.URL)
+			log.Debug(req.Header)
 			ctx := Context{
 				Request:  req,
 				Writer:   wrt,
 				Payload:  make(H),
 				Params:   mux.Vars(req),
-				index:    -1,
+				index:    0,
 				handlers: r.handlers,
 				decoder:  dec,
 				validate: vat,
 				render:   rdr,
 			}
 			ctx.Next()
-			log.Infof("done, %d %s", ctx.code, time.Now().Sub(now))
+			log.Infof("%d %s", ctx.code, time.Now().Sub(now))
 		}).Methods(r.method)
 	}
 	return rut
