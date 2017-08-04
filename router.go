@@ -3,6 +3,7 @@ package axe
 import (
 	"html/template"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/go-playground/form"
@@ -84,6 +85,27 @@ func (p *Router) add(method, path string, handlers ...HandlerFunc) {
 	)
 }
 
+// Resources resources
+func (p *Router) Resources(path string, index, create, show, update, destroy []HandlerFunc) {
+	if index != nil {
+		p.GET(path, index...)
+	}
+	if create != nil {
+		p.POST(path, create...)
+	}
+
+	path += "/{id}"
+	if show != nil {
+		p.GET(path, show...)
+	}
+	if update != nil {
+		p.POST(path, update...)
+	}
+	if destroy != nil {
+		p.POST(path, destroy...)
+	}
+}
+
 // Group sub-router
 func (p *Router) Group(path string, router *Router) {
 	for _, rt := range router.routes {
@@ -106,6 +128,7 @@ func (p *Router) Group(path string, router *Router) {
 
 // Walk walk routes
 func (p *Router) Walk(f func(method, path string, handlers ...HandlerFunc) error) error {
+	sort.Sort(routes(p.routes))
 	for _, r := range p.routes {
 		if e := f(r.method, r.path, r.handlers...); e != nil {
 			return e
@@ -154,10 +177,4 @@ func (p *Router) Handler(views string, debug bool) http.Handler {
 		}).Methods(r.method)
 	}
 	return rut
-}
-
-type route struct {
-	method   string
-	path     string
-	handlers []HandlerFunc
 }
