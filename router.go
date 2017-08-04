@@ -55,7 +55,7 @@ func (p *Router) GET(path string, handlers ...HandlerFunc) {
 
 // POST http post
 func (p *Router) POST(path string, handlers ...HandlerFunc) {
-	p.add(http.MethodGet, path, handlers...)
+	p.add(http.MethodPost, path, handlers...)
 }
 
 // PUT http put

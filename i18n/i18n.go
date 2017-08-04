@@ -84,14 +84,15 @@ func (p *I18n) All(lang string) (map[string]interface{}, error) {
 // Load locales from yaml files
 func (p *I18n) Load(dir string) error {
 	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		names := strings.Split(info.Name(), ".")
-		if info.Mode().IsRegular() && len(names) == 3 && names[2] == "yaml" {
-			if err != nil {
-				return err
-			}
+		if err != nil {
+			return err
+		}
+		const ext = ".yml"
+		name := info.Name()
+		if info.Mode().IsRegular() && filepath.Ext(name) == ext {
 
 			log.Debugf("Find locale file %s", path)
-			lang, err := language.Parse(names[1])
+			lang, err := language.Parse(name[:len(name)-len(ext)])
 			if err != nil {
 				return err
 			}
@@ -106,7 +107,7 @@ func (p *I18n) Load(dir string) error {
 				return err
 			}
 
-			return p.loopNode(names[0], val, func(code string, message string) error {
+			return p.loopNode("", val, func(code string, message string) error {
 				// log.Debugf("%s.%s = %s", lang.String(), code, message)
 				// return nil
 				return p.Store.Set(lang.String(), code, message, false)
@@ -120,7 +121,9 @@ func (p *I18n) loopNode(r string, m map[interface{}]interface{}, f func(string, 
 	for k, v := range m {
 		ks, ok := k.(string)
 		if ok {
-			ks = r + "." + ks
+			if r != "" {
+				ks = r + "." + ks
+			}
 			vs, ok := v.(string)
 			if ok {
 				if e := f(ks, vs); e != nil {
@@ -153,7 +156,6 @@ func (p *I18n) key(lang, code string) string {
 }
 
 func (p *I18n) get(lang, code string) (string, error) {
-	code = "api." + code
 	key := p.key(lang, code)
 	var msg string
 	err := p.Cache.Get(key, &msg)
