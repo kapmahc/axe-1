@@ -34,6 +34,7 @@ func (p *I18n) Middleware() (axe.HandlerFunc, error) {
 		if write {
 			http.SetCookie(c.Writer, &http.Cookie{
 				Name:     LOCALE,
+				Path:     "/",
 				Value:    lang,
 				Secure:   false,
 				HttpOnly: false,
