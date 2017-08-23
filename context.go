@@ -2,6 +2,8 @@ package axe
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"math"
 	"net"
 	"net/http"
@@ -38,8 +40,22 @@ type Context struct {
 	render   *render.Render
 }
 
-// Bind bind json form
+// Bind bind json request
 func (p *Context) Bind(f interface{}) error {
+	if p.Request.Body == nil {
+		return errors.New("nil request body")
+	}
+	if e := json.NewDecoder(p.Request.Body).Decode(f); e != nil {
+		return e
+	}
+	if e := p.decoder.Decode(f, p.Request.Form); e != nil {
+		return e
+	}
+	return p.validate.Struct(f)
+}
+
+// Form buind form request
+func (p *Context) Form(f interface{}) error {
 	if e := p.Request.ParseForm(); e != nil {
 		return e
 	}
